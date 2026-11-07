@@ -1,154 +1,179 @@
-\# Campus Café - Serverless Architecture Application
+# Campus Café – Backend seguro y arquitectura serverless
 
+Aplicación serverless de microservicios desarrollada para el taller de Arquitectura Empresarial. Implementa un backend para la gestión de catálogo y órdenes de Campus Café, utilizando Java 17, AWS Lambda, Amazon API Gateway, Amazon DynamoDB y AWS SAM.
 
+El proyecto incorpora autenticación mediante Auth0, autorización por scopes e idempotencia segura para la creación de órdenes.
 
-Aplicación serverless de microservicios desarrollada para el taller de Arquitectura Empresarial, construida con \*\*Java 17\*\*, \*\*AWS Lambda\*\*, \*\*API Gateway (HTTP API v2)\*\* y \*\*DynamoDB\*\*, provisionada mediante \*\*AWS SAM\*\*.
+## 1. Tecnologías
 
+- Java 17
+- Maven
+- AWS Lambda
+- Amazon API Gateway (HTTP API v2)
+- Amazon DynamoDB
+- AWS SAM
+- Auth0 (OAuth 2.0 / JWT)
+- JUnit
 
+## 2. Arquitectura
 
-\----------------------------------------------------
+La solución se organiza en dos servicios principales:
 
+### Catalog Service
 
+Responsable de administrar el catálogo de productos.
 
-\##  Arquitectura del Sistema
+- Consulta de productos.
+- Consulta de un producto por identificador.
+- Gestión de precios y disponibilidad.
+- Tabla: `CampusCafeCatalog`.
 
+### Orders Service
 
+Responsable de administrar las órdenes.
 
-La solución está dividida en dos microservicios independientes con sus propias bases de datos y responsabilidades:
+- Creación de órdenes.
+- Consulta de órdenes por identificador.
+- Cancelación de órdenes.
+- Validación de productos y precios desde el catálogo.
+- Control de propiedad de las órdenes.
+- Idempotencia mediante la cabecera `Idempotency-Key`.
 
+Tablas utilizadas:
 
+- `CampusCafeOrders`: información de las órdenes.
+- `CampusCafeIdempotency`: registros de idempotencia.
 
-1\. \*\*Catalog Service\*\*: 
+### Seguridad
 
-&#x20;  - Gestiona el catálogo de productos, precios y disponibilidad.
+- Autenticación mediante JWT de Auth0.
+- Autorización mediante scopes.
+- Validación de identidad del usuario mediante `iss` y `sub`.
+- Aislamiento de órdenes entre usuarios.
+- Validación del contenido de las solicitudes.
+- Protección frente a reutilización de claves de idempotencia con diferentes solicitudes.
 
-&#x20;  - Rutas: `GET /products`, `GET /products/{productId}`.
+## 3. Rutas de la API
 
-&#x20;  - Tabla DynamoDB: `CampusCafeCatalog`.
+| Método | Ruta | Permiso |
+|---|---|---|
+| GET | `/products` | Consulta pública según configuración |
+| GET | `/products/{productId}` | Consulta pública según configuración |
+| POST | `/orders` | `orders:create` |
+| GET | `/orders/{orderId}` | `orders:read` |
+| POST | `/orders/{orderId}/cancel` | `orders:cancel` |
 
-2\. \*\*Orders Service\*\*: 
+Las rutas protegidas requieren un Access Token válido y el scope correspondiente.
 
-&#x20;  - Gestiona la creación de órdenes calculando totales con base en el catálogo, consultas por ID y cancelaciones.
+## 4. Idempotencia
 
-&#x20;  - Implementa control estricto de idempotencia mediante la cabecera `Idempotency-Key`.
+La creación de órdenes utiliza la cabecera `Idempotency-Key`.
 
-&#x20;  - Rutas: `POST /orders`, `GET /orders/{orderId}`, `POST /orders/{orderId}/cancel`.
+Comportamiento esperado:
 
-&#x20;  - Tabla DynamoDB: `CampusCafeOrders`.
+- Una misma clave con el mismo usuario y contenido devuelve la orden original.
+- Una misma clave con un contenido diferente devuelve HTTP 409.
+- La clave se encuentra aislada por identidad del usuario.
+- La creación de la orden y el registro de idempotencia se realizan mediante una operación transaccional de DynamoDB.
+- No se aceptan precios enviados por el cliente; el backend obtiene los precios del catálogo.
 
-3\. \*\*Seguridad y Despliegue\*\*: 
-
-&#x20;  - Integración con el rol institucional `LabRole` y aislamiento de permisos por servicio.
-
-
-
-
-
-\[ Browser / Client ] 
-
-&#x20;       │ (HTTPS)
-
-&#x20;       ▼
-
-\[ Amazon API Gateway (HTTP API v2) ]
-
-&#x20;       ├─── /products ────► \[ Catalog Lambda ] ────► \[ Catalog DynamoDB ]
-
-&#x20;       └─── /orders  ─────► \[ Orders Lambda  ] ────► \[ Orders DynamoDB  ]
-
-
-
-\-------------------------------------------------------------------
-
-
-
-\##  Estructura del Proyecto
-
-
+## 5. Estructura del proyecto
 
 ```text
-
 campus-cafe-backend/
-
+├── docs/
+│   ├── arquitectura/
+│   ├── decisiones/
+│   ├── limitaciones/
+│   ├── operacion/
+│   └── pruebas/
+├── frontend/
+│   ├── app.js
+│   └── index.html
+├── seed/
+│   └── seed_catalog.py
 ├── src/
+│   ├── main/
+│   │   └── java/com/campuscafe/
+│   │       ├── catalog/
+│   │       └── orders/
+│   └── test/
+├── openapi.yaml
+├── pom.xml
+├── template.yaml
+└── README.md
+```
 
-│   └── main/java/com/campuscafe/
+## 6. Requisitos
 
-│       ├── catalog/          # CatalogHandler.java
+Antes de ejecutar el proyecto se requiere:
 
-│       └── orders/           # OrdersHandler.java
+- Java 17.
+- Maven.
+- AWS CLI.
+- AWS SAM CLI.
+- Acceso al entorno AWS Academy Learner Lab.
+- Configuración de Auth0 para el frontend y la API.
 
-├── template.yaml             # Definición de infraestructura SAM (Tablas, Lambdas, API Gateway)
+En el laboratorio se utiliza el rol institucional proporcionado. No se deben modificar sus permisos fuera de las capacidades autorizadas por el entorno académico.
 
-└── README.md                 # Documentación del proyecto
+## 7. Compilación y validación
 
-
-
-
-
-Instrucciones de Despliegue
-
-Asegúrate de tener instalados AWS CLI, AWS SAM CLI, Java 17 y Maven. Configura tus credenciales y sigue estos pasos en tu terminal:
-
-
+Desde la carpeta raíz del proyecto:
 
 Validar la plantilla SAM:
 
-
-
-Bash
-
+```powershell
 sam validate --lint
+```
 
-Compilar el proyecto (evitando caché para empaquetar dependencias limpias):
+Compilar el proyecto:
 
-
-
-Bash
-
+```powershell
 sam build --no-cached
+```
 
-Desplegar en AWS:
+Ejecutar las pruebas unitarias:
 
+```powershell
+mvn clean test
+```
 
+## 8. Despliegue
 
-Bash
+Para el primer despliegue:
 
+```powershell
+sam deploy --guided
+```
+
+Seguir las instrucciones del asistente y proporcionar los parámetros solicitados por la plantilla.
+
+Para despliegues posteriores:
+
+```powershell
 sam deploy
+```
 
+La región utilizada durante el desarrollo fue `us-east-1`.
 
+## 9. Verificación de la API
 
-\------------------------------------------------------------
+Configurar la URL base del API y un Access Token válido en PowerShell:
 
+```powershell
+$ApiUrl = "https://<api-id>.execute-api.us-east-1.amazonaws.com"
+$Token = "<ACCESS_TOKEN>"
+```
 
+Consultar el catálogo:
 
-&#x20;Comandos de Verificación (PowerShell)
+```powershell
+Invoke-RestMethod -Uri "$ApiUrl/products" -Method Get
+```
 
-1\. Consultar el Catálogo
+Crear una orden:
 
-PowerShell
-
-Invoke-RestMethod -Uri "https://<tu-api-id>\[.execute-api.us-east-1.amazonaws.com/products](https://.execute-api.us-east-1.amazonaws.com/products)" -Method Get
-
-2\. Crear una Orden (Con Idempotencia)
-
-PowerShell
-
-Invoke-RestMethod -Uri "https://<tu-api-id>\[.execute-api.us-east-1.amazonaws.com/orders](https://.execute-api.us-east-1.amazonaws.com/orders)" -Method Post -Headers @{ "Content-Type" = "application/json"; "Idempotency-Key" = "test-key-001" } -Body '{"items":\[{"productId":"prod-1","quantity":1}]}'
-
-3\. Consultar una Orden por ID
-
-PowerShell
-
-Invoke-RestMethod -Uri "https://<tu-api-id>\[.execute-api.us-east-1.amazonaws.com/orders/](https://.execute-api.us-east-1.amazonaws.com/orders/)<orderId>" -Method Get
-
-4\. Cancelar una Orden
-
-PowerShell
-
-Invoke-RestMethod -Uri "https://<tu-api-id>\[.execute-api.us-east-1.amazonaws.com/orders/](https://.execute-api.us-east-1.amazonaws.com/orders/)<orderId>/cancel" -Method Post
-
-
-
-
-
+```powershell
+$Headers = @{
+    Authorization
