@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Campus Café</title>
+
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: system-ui, sans-serif;
+            background: #f5f5f4;
+            color: #292524;
+        }
+        header {
+            background: #78350f;
+            color: white;
+            padding: 20px;
+        }
+        header h1 { margin: 0; }
+        main { max-width: 1000px; margin: auto; padding: 20px; }
+        section {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        h2 { margin-top: 0; }
+        label { display: block; margin: 12px 0 5px; }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #a8a29e;
+            border-radius: 6px;
+        }
+        button {
+            padding: 10px 14px;
+            margin: 8px 5px 0 0;
+            background: #92400e;
+            color: white;
+            border: 0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:disabled { opacity: .5; cursor: not-allowed; }
+        .secondary { background: #57534e; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .product { padding: 12px 0; border-bottom: 1px solid #e7e5e4; }
+        .muted { color: #57534e; font-size: .9rem; }
+        pre {
+            background: #1c1917;
+            color: #fafaf9;
+            padding: 15px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+    </style>
+
+    <!-- SDK oficial de Auth0: Authorization Code Flow con PKCE -->
+    <script defer
+        src="https://cdn.auth0.com/js/auth0-spa-js/2.0/auth0-spa-js.production.js">
+    </script>
+    <script defer src="app.js"></script>
+</head>
+<body>
+    <header>
+        <h1>☕ Campus Café</h1>
+        <p>Catálogo público y órdenes personales</p>
+    </header>
+
+    <main>
+        <section>
+            <h2>1. Tu sesión</h2>
+            <p id="session-status">Inicializando autenticación...</p>
+
+            <label for="login-user">Cuenta con la que quieres iniciar sesión</label>
+            <select id="login-user">
+                <option value="">Otra cuenta</option>
+                <option value="alice@campuscafe.com">Alice</option>
+                <option value="bob@campuscafe.com">Bob</option>
+                <option value="charlie@campuscafe.com">Charlie</option>
+            </select>
+
+            <p class="muted">
+                El selector sugiere una cuenta. Auth0 verificará quién inicia sesión.
+                No se guardan contraseñas ni se muestran tokens en esta página.
+            </p>
+
+            <button id="login" disabled>Iniciar sesión / cambiar de usuario</button>
+            <button id="logout" class="secondary" disabled>Cerrar sesión</button>
+        </section>
+
+        <div class="grid">
+            <section>
+                <h2>2. Menú</h2>
+                <button id="refresh-products">Actualizar catálogo</button>
+                <div id="products">Cargando productos...</div>
+            </section>
+
+            <section>
+                <h2>3. Crear una orden</h2>
+
+                <label for="product-id">Producto</label>
+                <input id="product-id" placeholder="Selecciona un producto del menú">
+
+                <label for="quantity">Cantidad</label>
+                <input id="quantity" type="number" min="1" max="10" step="1" value="1">
+
+                <button id="create-order" disabled>Crear orden</button>
+                <p class="muted">
+                    El servidor debe consultar el precio y calcular el total.
+                </p>
+            </section>
+        </div>
+
+        <section>
+            <h2>4. Consultar una orden</h2>
+            <label for="order-id">ID de la orden</label>
+            <input id="order-id" placeholder="Pega el ID de una orden">
+            <button id="get-order" disabled>Consultar orden</button>
+            <button id="cancel-order" class="secondary" disabled>
+    Cancelar orden
+</button>
+        </section>
+
+        <section>
+            <h2>Resultado</h2>
+            <pre id="result" aria-live="polite">Esperando una operación...</pre>
+        </section>
+    </main>
+</body>
+</html>

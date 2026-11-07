@@ -1,0 +1,162 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Campus Café - Enterprise Architecture (Java 17 / AWS SAM)
+
+Parameters:
+  CatalogApiUrl:
+    Type: String
+    Default: https://oawcto1611.execute-api.us-east-1.amazonaws.com
+    Description: Base URL del API Gateway donde está publicado Catalog.
+
+Globals:
+  Function:
+    Timeout: 15
+    MemorySize: 512
+    Runtime: java17
+    Environment:
+      Variables:
+        CATALOG_TABLE: !Ref CatalogTable
+        ORDERS_TABLE: !Ref OrdersTable
+        IDEMPOTENCY_TABLE: !Ref IdempotencyTable
+        CATALOG_API_URL: !Ref CatalogApiUrl
+
+Resources:
+  CampusCafeApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Content-Type
+          - X-Amz-Date
+          - Authorization
+          - X-Api-Key
+          - Idempotency-Key
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+      Auth:
+        DefaultAuthorizer: Auth0JwtAuthorizer
+        Authorizers:
+          Auth0JwtAuthorizer:
+            JwtConfiguration:
+              issuer: https://dev-wp2gou3ohfywb27y.us.auth0.com/
+              audience:
+                - https://campus-cafe-api.com
+            IdentitySource: "$request.header.Authorization"
+
+  # --- DynamoDB Tables ---
+  CatalogTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CampusCafeCatalog
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: productId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: productId
+          KeyType: HASH
+
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CampusCafeOrders
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: orderId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: orderId
+          KeyType: HASH
+
+  # Un registro por tupla (issuer, subject, client key), identificada por SHA-256.
+  IdempotencyTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CampusCafeIdempotency
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: idempotencyId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: idempotencyId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: false
+
+  # --- Lambda: Catalog Service (Público) ---
+  CatalogFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: com.campuscafe.catalog.CatalogHandler::handleRequest
+      Role: arn:aws:iam::184945694243:role/LabRole
+      Events:
+        GetProducts:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusCafeApi
+            Path: /products
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        GetProductById:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusCafeApi
+            Path: /products/{productId}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  # --- Lambda: Orders Service (Protegido con Scopes) ---
+  OrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: com.campuscafe.orders.OrdersHandler::handleRequest
+      Role: arn:aws:iam::184945694243:role/LabRole
+      Events:
+        PostOrder:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusCafeApi
+            Path: /orders
+            Method: POST
+            Auth:
+              Authorizer: Auth0JwtAuthorizer
+              AuthorizationScopes:
+                - orders:create
+        GetOrderById:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusCafeApi
+            Path: /orders/{orderId}
+            Method: GET
+            Auth:
+              Authorizer: Auth0JwtAuthorizer
+              AuthorizationScopes:
+                - orders:read
+        CancelOrder:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref CampusCafeApi
+            Path: /orders/{orderId}/cancel
+            Method: POST
+            Auth:
+              Authorizer: Auth0JwtAuthorizer
+              AuthorizationScopes:
+                - orders:cancel
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${CampusCafeApi}.execute-api.${AWS::Region}.amazonaws.com"
+  IdempotencyTableName:
+    Description: "DynamoDB table used for scoped idempotency records"
+    Value: !Ref IdempotencyTable

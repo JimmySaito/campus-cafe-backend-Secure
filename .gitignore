@@ -1,0 +1,31 @@
+﻿# Java y Maven
+target/
+*.class
+
+# AWS SAM
+.aws-sam/
+
+# Configuración local de despliegue
+samconfig.toml
+
+# Logs
+*.log
+logs de ejecuciones cmd.txt
+
+# Credenciales y secretos
+.env
+.env.*
+!.env.example
+.aws/
+*.pem
+*.key
+
+# IDE y sistema
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Tokens del frontend
+frontend/tokens.txt
