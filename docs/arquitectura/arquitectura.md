@@ -29,6 +29,8 @@ flowchart LR
     O --> IT[(CampusCafeIdempotency)]
     AUTH[Auth0 JWT + scopes] -. protege rutas de órdenes .-> API
 ```
+<img width="848" height="329" alt="image" src="https://github.com/user-attachments/assets/d3e41c5b-1f5c-45c8-9c0e-82a03db2a4b5" />
+
 
 ## Seguridad
 Las rutas de órdenes requieren scopes `orders:create`, `orders:read` y `orders:cancel`. El backend obtiene propietario desde los claims verificados y no confía en un propietario enviado por el navegador. Las credenciales de AWS no deben residir en el frontend.
